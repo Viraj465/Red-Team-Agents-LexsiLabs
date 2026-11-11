@@ -1,0 +1,23 @@
+# LLM Privilege Escalation Specialist Agent Configuration
+agent:
+  name: "LLMEscalationAgent"
+  base_model: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  adapter_path: "results/checkpoints/aligntune_privesc_lora"
+  execution_modes: ["mock", "hf_base", "hf_dpo"]
+  default_mode: "mock"
+
+inference:
+  quantization: "4-bit"
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_use_double_quant: true
+  device_map: "auto"
+  max_new_tokens: 48
+  temperature: 0.0
+  do_sample: false
+
+router_constraints:
+  max_escalation_attempts_per_host: 5
+  max_command_length_chars: 80
+  fallback_action: "Sleep"
+

@@ -1,0 +1,113 @@
+# Environment & Secrets (API keys, tokens)
+.env
+.env.*
+!.env.example
+secrets.json
+credentials.json
+*.pem
+*.key
+*.zip
+.git
+.agents
+cage-challenge-4/
+
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+*.ipynb_checkpoints
+
+# Machine Learning & AI (Model weights, checkpoints, data)
+checkpoints/
+*.pt
+*.pth
+*.bin
+*.onnx
+*.safetensors
+*.ckpt
+*.h5
+
+# Experiment Tracking & Logs
+wandb/
+runs/
+logs/
+*.log
+tb_logs/
+lightning_logs/
+
+# Data / Datasets
+data/
+dataset/
+datasets/
+*.csv
+*.tsv
+*.parquet
+*.jsonl
+*.h5py
+
+# Node / Web (if applicable)
+node_modules/
+.npm/
+.next/
+out/
+dist/
+
+# OS Specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# IDEs & Editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*~
+
+# Files
+
+INFO.md
+paper.info.md

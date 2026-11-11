@@ -1,0 +1,26 @@
+{
+  "schema": "lexsi.provenance/1",
+  "library": "aligntune",
+  "version": "0.1.32",
+  "git_sha": null,
+  "created_at": "2026-11-09T17:03:56Z",
+  "base_model": "Qwen/Qwen2.5-7B-Instruct",
+  "method": "dpo",
+  "inputs": [
+    {
+      "kind": "model",
+      "ref": "Qwen/Qwen2.5-7B-Instruct",
+      "config": null,
+      "provenance": null
+    },
+    {
+      "kind": "dataset",
+      "ref": "/root/LexsiLabs/data/processed/dpo_privesc_hf.json",
+      "config": null,
+      "provenance": null
+    }
+  ],
+  "params": {
+    "trainer": "TRLDPOTrainer"
+  }
+}

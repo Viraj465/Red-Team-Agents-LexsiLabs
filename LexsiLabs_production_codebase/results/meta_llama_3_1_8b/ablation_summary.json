@@ -1,0 +1,170 @@
+[
+  {
+    "Configuration": "1. Baseline Pure RL",
+    "Episodes": 30,
+    "P(Comp|Disc)": "37.4\u00b16.5%",
+    "P(Root|Comp)": "61.7\u00b122.2%",
+    "P(Impact|Root)": "63.5\u00b126.7%",
+    "Impact Rate": "93.3%",
+    "Avg RL Steps": "120.0\u00b10.0",
+    "Avg LLM Steps": "0.0\u00b10.0",
+    "Avg Tokens": "0\u00b10",
+    "Avg Time (s)": "4.25\u00b10.53s",
+    "_raw": {
+      "total_discov": 641,
+      "total_compro": 240,
+      "total_root": 148,
+      "total_impacted": 94,
+      "p_comp": 37.441497659906396,
+      "p_comp_std": 6.482595267115594,
+      "p_comp_95ci": [
+        35.91581310903293,
+        40.561252830102525
+      ],
+      "p_root": 61.66666666666667,
+      "p_root_std": 22.18568600910761,
+      "p_root_95ci": [
+        54.15846560846561,
+        69.50814393939395
+      ],
+      "p_impact": 63.51351351351351,
+      "p_impact_std": 26.712131735588056,
+      "p_impact_95ci": [
+        51.957341269841265,
+        71.30277777777778
+      ],
+      "impact_rate": 93.33333333333333,
+      "avg_rl_steps": 120.0,
+      "avg_llm_steps": 0.0,
+      "avg_tokens": 0.0,
+      "std_tokens": 0.0,
+      "avg_time": 4.2536647399266565
+    }
+  },
+  {
+    "Configuration": "2. Baseline Pure LLM (Llama-3.1-8B)",
+    "Episodes": 30,
+    "P(Comp|Disc)": "80.0\u00b124.4%",
+    "P(Root|Comp)": "82.5\u00b117.6%",
+    "P(Impact|Root)": "0.0\u00b10.0%",
+    "Impact Rate": "0.0%",
+    "Avg RL Steps": "0.0\u00b10.0",
+    "Avg LLM Steps": "120.0\u00b10.0",
+    "Avg Tokens": "12099\u00b11420",
+    "Avg Time (s)": "200.12\u00b117.20s",
+    "_raw": {
+      "total_discov": 100,
+      "total_compro": 80,
+      "total_root": 66,
+      "total_impacted": 0,
+      "p_comp": 80.0,
+      "p_comp_std": 24.391560358764544,
+      "p_comp_95ci": [
+        78.20046296296296,
+        95.27777777777777
+      ],
+      "p_root": 82.5,
+      "p_root_std": 17.64149149653232,
+      "p_root_95ci": [
+        83.99583333333334,
+        96.66666666666667
+      ],
+      "p_impact": 0.0,
+      "p_impact_std": 0.0,
+      "p_impact_95ci": [
+        0.0,
+        0.0
+      ],
+      "impact_rate": 0.0,
+      "avg_rl_steps": 0.0,
+      "avg_llm_steps": 120.0,
+      "avg_tokens": 12099.266666666666,
+      "std_tokens": 1420.289076991801,
+      "avg_time": 200.11962814331054
+    }
+  },
+  {
+    "Configuration": "3. Hybrid + Frozen Base (Llama-3.1-8B)",
+    "Episodes": 30,
+    "P(Comp|Disc)": "37.6\u00b16.1%",
+    "P(Root|Comp)": "50.0\u00b119.7%",
+    "P(Impact|Root)": "83.0\u00b123.7%",
+    "Impact Rate": "100.0%",
+    "Avg RL Steps": "98.1\u00b17.5",
+    "Avg LLM Steps": "21.9\u00b17.5",
+    "Avg Tokens": "6088\u00b12098",
+    "Avg Time (s)": "135.58\u00b145.41s",
+    "_raw": {
+      "total_discov": 500,
+      "total_compro": 188,
+      "total_root": 94,
+      "total_impacted": 78,
+      "p_comp": 37.6,
+      "p_comp_std": 6.0979088999097435,
+      "p_comp_95ci": [
+        35.68004320348554,
+        40.22058364763796
+      ],
+      "p_root": 50.0,
+      "p_root_std": 19.705745488709884,
+      "p_root_95ci": [
+        45.78035714285715,
+        59.5079365079365
+      ],
+      "p_impact": 82.97872340425532,
+      "p_impact_std": 23.715455709435,
+      "p_impact_95ci": [
+        74.71527777777776,
+        91.66666666666666
+      ],
+      "impact_rate": 100.0,
+      "avg_rl_steps": 98.1,
+      "avg_llm_steps": 21.9,
+      "avg_tokens": 6088.2,
+      "std_tokens": 2098.0560113273114,
+      "avg_time": 135.57833309173583
+    }
+  },
+  {
+    "Configuration": "4. Hybrid + AlignTune DPO (Llama-3.1-8B)",
+    "Episodes": 30,
+    "P(Comp|Disc)": "38.3\u00b15.7%",
+    "P(Root|Comp)": "55.8\u00b120.5%",
+    "P(Impact|Root)": "84.0\u00b120.6%",
+    "Impact Rate": "100.0%",
+    "Avg RL Steps": "99.0\u00b16.1",
+    "Avg LLM Steps": "21.0\u00b16.1",
+    "Avg Tokens": "5838\u00b11683",
+    "Avg Time (s)": "129.78\u00b136.27s",
+    "_raw": {
+      "total_discov": 496,
+      "total_compro": 190,
+      "total_root": 106,
+      "total_impacted": 89,
+      "p_comp": 38.306451612903224,
+      "p_comp_std": 5.73384635366868,
+      "p_comp_95ci": [
+        37.18959930248631,
+        41.12691572094629
+      ],
+      "p_root": 55.78947368421052,
+      "p_root_std": 20.51853663897571,
+      "p_root_95ci": [
+        49.952083333333334,
+        64.67946428571427
+      ],
+      "p_impact": 83.9622641509434,
+      "p_impact_std": 20.588262267852446,
+      "p_impact_95ci": [
+        78.05416666666666,
+        92.16666666666666
+      ],
+      "impact_rate": 100.0,
+      "avg_rl_steps": 99.0,
+      "avg_llm_steps": 21.0,
+      "avg_tokens": 5838.0,
+      "std_tokens": 1683.3735968782053,
+      "avg_time": 129.78063814640046
+    }
+  }
+]
