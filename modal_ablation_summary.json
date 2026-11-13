@@ -1,0 +1,35 @@
+[
+  {
+    "Configuration": "1. Baseline Pure RL",
+    "Episodes": 10,
+    "P(Comp|Disc)": "45.29%",
+    "P(Root|Comp)": "33.77%",
+    "P(Impact|Root)": "0.00%",
+    "Impact Rate": "0.00%",
+    "Avg RL Steps": "60.0",
+    "Avg LLM Steps": "0.0",
+    "Avg Tokens": "0"
+  },
+  {
+    "Configuration": "2. Hybrid + Frozen Base LLM",
+    "Episodes": 10,
+    "P(Comp|Disc)": "41.18%",
+    "P(Root|Comp)": "26.98%",
+    "P(Impact|Root)": "0.00%",
+    "Impact Rate": "0.00%",
+    "Avg RL Steps": "42.5",
+    "Avg LLM Steps": "17.5",
+    "Avg Tokens": "2876"
+  },
+  {
+    "Configuration": "3. Hybrid + AlignTune DPO LLM",
+    "Episodes": 10,
+    "P(Comp|Disc)": "41.45%",
+    "P(Root|Comp)": "23.81%",
+    "P(Impact|Root)": "0.00%",
+    "Impact Rate": "0.00%",
+    "Avg RL Steps": "43.9",
+    "Avg LLM Steps": "16.1",
+    "Avg Tokens": "2648"
+  }
+]

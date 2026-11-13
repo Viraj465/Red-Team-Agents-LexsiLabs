@@ -1,0 +1,86 @@
+[
+  {
+    "Configuration": "1. Baseline Pure RL",
+    "Episodes": 30,
+    "P(Comp|Disc)": "37.8\u00b16.5%",
+    "P(Root|Comp)": "59.3\u00b124.0%",
+    "P(Impact|Root)": "70.1\u00b122.0%",
+    "Impact Rate": "100.0%",
+    "Avg RL Steps": "120.0\u00b10.0",
+    "Avg LLM Steps": "0.0\u00b10.0",
+    "Avg Tokens": "0\u00b10",
+    "Avg Time (s)": "4.31\u00b10.51s",
+    "_raw": {
+      "total_discov": 598,
+      "total_compro": 226,
+      "total_root": 134,
+      "total_impacted": 94,
+      "p_comp": 37.79264214046823,
+      "p_comp_std": 6.523611027310358,
+      "p_comp_95ci": [
+        36.135847306215354,
+        40.7099327181182
+      ],
+      "p_root": 59.29203539823009,
+      "p_root_std": 23.950219908531658,
+      "p_root_95ci": [
+        52.25156625781625,
+        68.92603415103413
+      ],
+      "p_impact": 70.1492537313433,
+      "p_impact_std": 22.01030473980833,
+      "p_impact_95ci": [
+        61.633333333333326,
+        77.17738095238094
+      ],
+      "impact_rate": 100.0,
+      "avg_rl_steps": 120.0,
+      "avg_llm_steps": 0.0,
+      "avg_tokens": 0.0,
+      "std_tokens": 0.0,
+      "avg_time": 4.3053422609965
+    }
+  },
+  {
+    "Configuration": "2. Baseline Pure LLM (Llama-3.1-8B)",
+    "Episodes": 30,
+    "P(Comp|Disc)": "87.1\u00b120.3%",
+    "P(Root|Comp)": "100.0\u00b10.0%",
+    "P(Impact|Root)": "56.8\u00b129.1%",
+    "Impact Rate": "100.0%",
+    "Avg RL Steps": "0.0\u00b10.0",
+    "Avg LLM Steps": "120.0\u00b10.0",
+    "Avg Tokens": "24345\u00b13055",
+    "Avg Time (s)": "400.72\u00b12.19s",
+    "_raw": {
+      "total_discov": 93,
+      "total_compro": 81,
+      "total_root": 81,
+      "total_impacted": 46,
+      "p_comp": 87.09677419354838,
+      "p_comp_std": 20.31761687687696,
+      "p_comp_95ci": [
+        84.82916666666665,
+        98.33333333333333
+      ],
+      "p_root": 100.0,
+      "p_root_std": 0.0,
+      "p_root_95ci": [
+        100.0,
+        100.0
+      ],
+      "p_impact": 56.79012345679012,
+      "p_impact_std": 29.0916495591789,
+      "p_impact_95ci": [
+        54.44027777777778,
+        74.72499999999998
+      ],
+      "impact_rate": 100.0,
+      "avg_rl_steps": 0.0,
+      "avg_llm_steps": 120.0,
+      "avg_tokens": 24344.633333333335,
+      "std_tokens": 3055.2449490816425,
+      "avg_time": 400.7181010802587
+    }
+  }
+]

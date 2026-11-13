@@ -1,0 +1,26 @@
+# Evaluation & Benchmark Configuration
+benchmark:
+  name: "Adaptive Kill-Chain Router (AKCR) 3-Way Ablation"
+  num_episodes: 10
+  max_steps_per_episode: 60
+  seed_start: 101
+
+configurations:
+  - id: 1
+    name: "1. Baseline Pure RL"
+    description: "Pure RL / CybORG FiniteStateRedAgent heuristic handling full kill chain"
+    agent_type: "pure_rl"
+  - id: 2
+    name: "2. Hybrid + Frozen Base LLM"
+    description: "AKCR router + frozen Qwen2.5-Coder-7B-Instruct (isolates structural gain)"
+    agent_type: "hybrid_frozen"
+  - id: 3
+    name: "3. Hybrid + AlignTune DPO LLM"
+    description: "AKCR router + AlignTune DPO LoRA adapter (isolates alignment gain)"
+    agent_type: "hybrid_dpo"
+
+outputs:
+  markdown_report: "results/reports/ablation_results.md"
+  visual_chart: "results/reports/killchain_ablation.png"
+  executive_summary: "results/reports/executive_summary.md"
+
