@@ -1,7 +1,0 @@
-evaluation:
-  episodes_per_config: 10
-  max_steps_per_episode: 60
-  configurations:
-    - "1. Baseline Pure RL"
-    - "2. Hybrid + Frozen Base LLM"
-    - "3. Hybrid + AlignTune DPO LLM"

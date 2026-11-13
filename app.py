@@ -33,6 +33,7 @@ image = (
         "gym==0.26.2",
         "pygame",
         "prettytable",
+        "tqdm",
     )
     # Install CybORG CAGE-4 without overwriting PyTorch or other dependencies
     .run_commands(
@@ -55,7 +56,7 @@ hf_secret = modal.Secret.from_name("huggingface-secret")
     gpu="L4",
     secrets=[hf_secret],
     volumes={"/root/LexsiLabs/results": volume},
-    timeout=20400,  # 4-hour timeout for full 30-episode 4-quadrant benchmark
+    timeout=86400,  # 24-hour timeout (Modal maximum) to allow full 30-episode benchmarks
     min_containers=1,  # Keep container warm for seamless continuation
 )
 def train_and_benchmark(
@@ -63,7 +64,7 @@ def train_and_benchmark(
     episodes: int = 30,
     max_steps: int = 120,
     force_train: bool = False,
-    fresh: bool = True,
+    fresh: bool = False,
 ):
     # 1. Hot-fix: Ensure numpy is >= 2.0 in the container before importing pyarrow/trl
     subprocess.run(
@@ -149,7 +150,7 @@ def main(
     episodes: int = 30,
     max_steps: int = 120,
     force_train: bool = False,
-    fresh: bool = True,
+    fresh: bool = False,
 ):
     print("=" * 80)
     print(f"🚀 LAUNCHING MODAL RUN ON NVIDIA L4 GPU")

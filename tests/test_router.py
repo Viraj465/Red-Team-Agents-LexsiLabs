@@ -153,6 +153,37 @@ class TestAdaptiveKillChainRouter:
         selected_fallback = agent._bind_action_from_text("I am analyzing the scenario.", candidates)
         assert "PrivilegeEscalate" in getattr(selected_fallback, "name", str(selected_fallback))
 
+    def test_content_based_action_binding_large_candidate_list(self):
+        """Verifies deterministic content-based selection on a 25+ candidate action space."""
+        from src.agents.llm_agent import _bind_action_from_reply
+        from CybORG.Simulator.Actions.AbstractActions import (
+            DiscoverRemoteSystems,
+            PrivilegeEscalate,
+            DegradeServices,
+        )
+
+        candidates = []
+        # Add 10 recon actions
+        for i in range(10):
+            candidates.append(DiscoverRemoteSystems(subnet=f"subnet_{i}", session=0, agent="red_agent_0"))
+        # Add target action at index 10 (middle of list)
+        target_action = PrivilegeEscalate(hostname="user_host_1", session=0, agent="red_agent_0")
+        candidates.append(target_action)
+        # Add other escalation actions
+        for i in range(2, 8):
+            candidates.append(PrivilegeEscalate(hostname=f"user_host_{i}", session=0, agent="red_agent_0"))
+        # Add disruption actions
+        for i in range(8):
+            candidates.append(DegradeServices(hostname=f"user_host_{i}", session=0, agent="red_agent_0"))
+
+        assert len(candidates) >= 25
+
+        reply = "I will escalate privileges on user_host_1 using PrivilegeEscalate."
+        selected = _bind_action_from_reply(reply, candidates)
+        assert selected is target_action
+        assert getattr(selected, "hostname", "") == "user_host_1"
+        assert "PrivilegeEscalate" in getattr(selected, "name", str(selected))
+
     def test_rl_agent_probabilistic_privesc(self):
         # When privesc_success_prob=0.0, strictly return Sleep
         rl_blocked = RLAgent(policy_type="heuristic", allow_privesc=False, privesc_success_prob=0.0)
@@ -205,6 +236,30 @@ class TestAdaptiveKillChainRouter:
         assert len(router.host_attempts) == 0
         assert len(router.disrupted_hosts) == 0
         assert len(router.handoff_history) == 0
+
+    def test_router_uses_source_red_abstract_session_zero(self, setup_router):
+        """
+        Verifies that when a compromised host has a remote target session ID >= 2,
+        the router binds PrivilegeEscalate and DegradeServices to source session=0
+        (CybORG's RedAbstractSession) rather than the target host's session ID.
+        """
+        router = setup_router
+        mock_obs = {
+            "success": "TRUE",
+            "contractor_network_subnet_server_host_2": {
+                "Interface": [{"IP Address": "10.0.167.50"}],
+                "Sessions": [{"agent": "red_agent_0", "Username": "user", "ID": 3}],
+                "System info": {"OSType": "linux"},
+                "Services": ["sshd"],
+            },
+        }
+        action_space = {"session": {0: True, 3: False}}
+        action = router.get_action(mock_obs, action_space=action_space)
+        assert "PrivilegeEscalate" in str(action)
+        assert getattr(action, "session", None) == 0
+        telem = router.get_router_telemetry()
+        assert telem["llm_steps"] == 1
+        assert telem["unique_hosts_handed_to_llm"] == 1
 
     def test_pure_llm_agent_kill_chain_candidates(self):
         from src.agents.pure_llm_agent import PureLLMAgent

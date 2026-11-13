@@ -1,5 +1,0 @@
-llm_agent:
-  base_model_name: Qwen/Qwen2.5-Coder-7B-Instruct
-  adapter_path: results/checkpoints/aligntune_privesc_lora
-  max_new_tokens: 48
-  max_escalation_steps_per_host: 5

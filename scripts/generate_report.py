@@ -74,11 +74,16 @@ def plot_ablation_chart(
 
     for idx, (cfg_name, means, errs) in enumerate(zip(configs, reach_means, reach_stds)):
         offset = (idx - (n_configs - 1) / 2) * width
+        means_arr = np.array(means, dtype=float)
+        errs_arr = np.array(errs, dtype=float)
+        # Clip error bars to valid probability bounds [0, 100]
+        lower_errs = np.minimum(errs_arr, means_arr)
+        upper_errs = np.minimum(errs_arr, np.maximum(0.0, 100.0 - means_arr))
         bars = ax1.bar(
             x + offset,
-            means,
+            means_arr,
             width,
-            yerr=errs,
+            yerr=[lower_errs, upper_errs],
             capsize=3,
             label=cfg_name,
             color=colors[idx % len(colors)],
@@ -132,7 +137,7 @@ def plot_ablation_chart(
         label="Latency (s) / Ep",
     )
 
-    ax2.set_title("Panel B: Compute & Financial Overhead Scaling", fontsize=11, fontweight="bold", pad=12)
+    ax2.set_title("Panel B: Inference Compute & Latency Overhead", fontsize=11, fontweight="bold", pad=12)
     ax2.set_ylabel("Average Tokens per Episode (Log Scale)", fontsize=10, color="#8e44ad")
     ax2.set_yscale("log")
     ax2.set_ylim(1, max(max(tokens) * 3, 200000))

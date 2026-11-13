@@ -1,3 +1,0 @@
-rl_agent:
-  policy_type: heuristic
-  fallback_agent: SleepAgent

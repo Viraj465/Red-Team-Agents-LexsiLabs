@@ -8,11 +8,128 @@ Supports four execution modes for ablation studies:
 """
 
 import gc
+import json
 import os
 import random
+import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from src.agents.base import BaseAgent
 from CybORG.Simulator.Actions import Sleep
+
+ACTION_PRIORITY_KEYWORDS = [
+    ("PrivilegeEscalate", ["privilegeescalate", "privilege_escalate", "privesc", "escalate", "root", "sudo"]),
+    ("DegradeServices", ["degradeservices", "degrade_services", "degrade", "impact", "disrupt", "stop service"]),
+    ("ExploitRemoteService", ["exploitremoteservice", "exploit_remote_service", "exploit", "compromise", "rce"]),
+    ("DiscoverNetworkServices", ["discovernetworkservices", "discover_network_services", "port scan", "service scan", "services"]),
+    ("DiscoverRemoteSystems", ["discoverremotesystems", "discover_remote_systems", "ping sweep", "subnet scan", "discover"]),
+]
+
+
+def _bind_action_from_reply(reply_text: str, candidate_actions: List[Any]) -> Any:
+    """
+    Content-based action matcher. Parses the LLM reply for explicit action strings,
+    target hostnames/IPs, and action class names, scoring each candidate in candidate_actions.
+    Never uses blind positional indexing unless no candidate matches at all.
+    """
+    if not candidate_actions:
+        return None
+    if len(candidate_actions) == 1:
+        return candidate_actions[0]
+
+    clean_reply = (reply_text or "").strip()
+    reply_lower = clean_reply.lower()
+
+    # 1. Exact or normalized string representation match (e.g., "PrivilegeEscalate contractor_network_subnet_user_host_0")
+    for action in candidate_actions:
+        action_str = str(action).strip().lower()
+        if action_str and action_str in reply_lower:
+            return action
+
+    # 2. Extract any hostname or IP tokens mentioned in the LLM output
+    # Matches CAGE-4 hostnames (e.g. user_host_1, enterprise0, defender, op_server0) or IPv4 addresses
+    host_pattern = re.compile(
+        r"\b([a-z0-9_]*host[a-z0-9_]*|[a-z0-9_]*server[a-z0-9_]*|enterprise[a-z0-9_]*|defender[a-z0-9_]*|\d{1,3}(?:\.\d{1,3}){3})\b",
+        re.IGNORECASE,
+    )
+    mentioned_targets = {m.group(1).lower() for m in host_pattern.finditer(reply_lower)}
+
+    # 3. Identify desired action class from reply keywords
+    matched_classes = []
+    has_disruption = any(
+        kw in reply_lower for kw in ["degradeservices", "degrade", "disrupt", "impact", "stop service"]
+    )
+    for class_name, kw_list in ACTION_PRIORITY_KEYWORDS:
+        if class_name == "PrivilegeEscalate" and has_disruption:
+            # If disruption keywords are present, only match PrivilegeEscalate on explicit escalation stems
+            if any(kw in reply_lower for kw in ["privilegeescalate", "privilege_escalate", "privesc", "escalate", "sudo", "gain root", "become root", "to root"]):
+                matched_classes.append(class_name.lower())
+        else:
+            if any(kw in reply_lower for kw in kw_list):
+                matched_classes.append(class_name.lower())
+
+    # 4. Score every candidate action by (target_match, action_class_match)
+    best_action = None
+    best_score = -1
+
+    for action in candidate_actions:
+        score = 0
+        act_str = str(action).lower()
+        act_class = type(action).__name__.lower()
+        act_host = str(getattr(action, "hostname", getattr(action, "ip_address", "")) or "").lower()
+
+        # Strong weight for matching the specific host/IP the LLM reasoned about
+        if act_host and act_host in mentioned_targets:
+            score += 10
+        elif any(t in act_str for t in mentioned_targets):
+            score += 8
+
+        # Weight for matching the intended kill-chain phase / action class
+        if matched_classes:
+            if act_class == matched_classes[0]:
+                score += 6
+            elif act_class in matched_classes:
+                score += 4
+
+        # Tie-breaker: favor higher kill-chain progression over Sleep/recon when reasoning is ambiguous
+        if "privilegeescalate" in act_class:
+            score += 2
+        elif "degradeservices" in act_class or "impact" in act_class:
+            score += 1
+
+        if score > best_score:
+            best_score = score
+            best_action = action
+
+    return best_action if best_action is not None else candidate_actions[0]
+
+
+def _log_raw_llm_audit(
+    agent_type: str,
+    model_name: str,
+    prompt: str,
+    raw_reply: str,
+    selected_action: Any,
+    candidate_actions: List[Any],
+) -> None:
+    """Appends raw LLM reply + selected action to logs/raw_llm_audit.jsonl for §5.3 verification."""
+    try:
+        os.makedirs("logs", exist_ok=True)
+        record = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "agent_type": agent_type,
+            "model": model_name,
+            "prompt_tail": prompt[-400:] if prompt else "",
+            "raw_reply": raw_reply,
+            "selected_action": str(selected_action),
+            "selected_class": type(selected_action).__name__,
+            "num_candidates": len(candidate_actions),
+            "candidates_sample": [str(c) for c in candidate_actions[:10]],
+        }
+        with open("logs/raw_llm_audit.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
+    except Exception:
+        pass
 
 
 class LLMEscalationAgent(BaseAgent):
@@ -27,6 +144,8 @@ class LLMEscalationAgent(BaseAgent):
         self.adapter_path = adapter_path
         self.step_counter = 0
         self.total_tokens_used = 0
+        self.prompt_tokens_used = 0
+        self.completion_tokens_used = 0
         self.raw_reply_log_count = 0
         self.model = None
         self.tokenizer = None
@@ -96,103 +215,8 @@ class LLMEscalationAgent(BaseAgent):
         return None
 
     def _bind_action_from_text(self, reply: str, candidate_actions: List[Any]) -> Any:
-        """Semantically binds LLM output text to concrete candidate action objects."""
-        if not candidate_actions:
-            return Sleep()
-
-        clean_reply = reply.replace("```", "").replace("*", "").strip().lower()
-        norm_reply = clean_reply.replace(" ", "").replace("_", "").replace("-", "")
-
-        # 1. Exact or normalized string match against candidate action representations
-        for act in candidate_actions:
-            act_str = str(act).strip().lower()
-            norm_act = act_str.replace(" ", "").replace("_", "").replace("-", "")
-            if act_str and (act_str in clean_reply or clean_reply in act_str or norm_act in norm_reply):
-                return act
-
-        # 2. Exact or normalized match by action class name AND target hostname/ip
-        for act in candidate_actions:
-            act_name = getattr(act, "name", act.__class__.__name__).lower().replace(" ", "").replace("_", "")
-            act_host = str(getattr(act, "hostname", getattr(act, "ip_address", ""))).lower().replace(" ", "").replace("_", "")
-            if act_name in norm_reply and act_host and act_host in norm_reply:
-                return act
-
-        # 3. Action type match (excluding Sleep unless explicitly stated)
-        for act in candidate_actions:
-            act_name = getattr(act, "name", act.__class__.__name__).lower().replace(" ", "").replace("_", "")
-            if act_name in norm_reply and act_name != "sleep":
-                return act
-
-        # 4. Disruption / degrade keywords match (checked BEFORE escalation stems to prevent
-        # phrases like 'degrade root host' from being hijacked by 'root')
-        disruption_stems = ["degradeservices", "degrade", "disrupt", "impact", "stopservice", "kill"]
-        if any(stem in clean_reply for stem in disruption_stems):
-            for act in candidate_actions:
-                if any(k in str(act).lower() for k in ["degradeservices", "impact"]):
-                    return act
-
-        # 5. Remote exploitation semantics match (for Pure LLM)
-        exploit_stems = ["exploit", "msf", "eternalblue", "rce", "compromise", "shell"]
-        if any(stem in clean_reply for stem in exploit_stems):
-            for act in candidate_actions:
-                if "exploitremoteservice" in str(act).lower():
-                    return act
-
-        # 6. Service / network discovery semantics match (for Pure LLM)
-        discovery_stems = ["scan", "port", "service", "discovernetwork", "aggressiveservicediscovery", "enum"]
-        if any(stem in clean_reply for stem in discovery_stems):
-            for act in candidate_actions:
-                if any(k in str(act).lower() for k in ["servicediscovery", "discovernetwork"]):
-                    return act
-
-        # 7. Host / subnet discovery semantics match (for Pure LLM)
-        network_stems = ["subnet", "ping", "arp", "discoverremote", "discoverremotesystems"]
-        if any(stem in clean_reply for stem in network_stems):
-            for act in candidate_actions:
-                if "discoverremotesystems" in str(act).lower():
-                    return act
-
-        # 8. Privilege escalation semantics match (stem matching)
-        # Matches "escalat" (escalate, escalation, escalating), "priv" (privilege, privesc), "sudo", etc.
-        # Only matches "root" if it indicates becoming root or if disruption is not requested.
-        escalation_stems = [
-            "priv",
-            "escalat",
-            "sudo",
-            "suid",
-            "to root",
-            "get root",
-            "become root",
-            "gain root",
-            "root priv",
-            "admin",
-            "chmod",
-            "python",
-            "find",
-            "juicypotato",
-            "v4l2",
-            "dirtycow",
-            "meterpreter",
-        ]
-        if any(stem in clean_reply for stem in escalation_stems) or ("root" in clean_reply and "degrade" not in clean_reply):
-            for act in candidate_actions:
-                act_str = str(act).lower()
-                if any(k in act_str for k in ["privilegeescalate", "escalat"]):
-                    return act
-
-        # 9. Explicit sleep match
-        if "sleep" in clean_reply:
-            for act in candidate_actions:
-                if "sleep" in str(act).lower():
-                    return act
-
-        # 10. Intelligent fallback: If specialist has PrivilegeEscalate in candidate actions, prefer it over Sleep
-        for act in candidate_actions:
-            if "privilegeescalate" in str(act).lower():
-                return act
-
-        # Fallback to last candidate action (or Sleep)
-        return candidate_actions[-1] if candidate_actions else Sleep()
+        """Backwards-compatible alias for content-based action binding."""
+        return _bind_action_from_reply(reply, candidate_actions)
 
     def select_escalation_action(self, prompt: str, candidate_actions: List[Any]) -> Any:
         self.step_counter += 1
@@ -200,41 +224,49 @@ class LLMEscalationAgent(BaseAgent):
             return Sleep()
 
         if self.model_mode == "mock":
+            self.prompt_tokens_used += 34
+            self.completion_tokens_used += 8
             self.total_tokens_used += 42
-            # Deterministic specialist selection for unit testing
-            for action in candidate_actions:
-                if any(kw in str(action) for kw in ["PrivilegeEscalate", "Escalate"]):
-                    return action
-            return candidate_actions[-1] if candidate_actions else Sleep()
+            # Deterministic specialist selection
+            action = _bind_action_from_reply("PrivilegeEscalate", candidate_actions)
+            _log_raw_llm_audit("specialist_mock", self.base_model_name, prompt, "PrivilegeEscalate", action, candidate_actions)
+            return action
 
         if self.model_mode == "mock_dpo":
+            self.prompt_tokens_used += 34
+            self.completion_tokens_used += 8
             self.total_tokens_used += 42
             # 95% single-line precision on escalation
             if random.random() < 0.95:
-                for action in candidate_actions:
-                    if any(kw in str(action) for kw in ["PrivilegeEscalate", "Escalate"]):
-                        return action
-            return candidate_actions[-1] if candidate_actions else Sleep()
+                action = _bind_action_from_reply("PrivilegeEscalate", candidate_actions)
+            else:
+                action = candidate_actions[0] if candidate_actions else Sleep()
+            _log_raw_llm_audit("specialist_mock_dpo", self.base_model_name, prompt, "PrivilegeEscalate", action, candidate_actions)
+            return action
 
         if self.model_mode == "mock_base":
-            self.total_tokens_used += 185  # Conversational verbose footprint
+            self.prompt_tokens_used += 105
+            self.completion_tokens_used += 80
+            self.total_tokens_used += 185  # Conversational verbose footprint without arbitrary chatter penalty
             # 75% precision reflecting unaligned model prompt following
             if random.random() < 0.75:
-                for action in candidate_actions:
-                    if any(kw in str(action) for kw in ["PrivilegeEscalate", "Escalate"]):
-                        return action
-            return candidate_actions[-1] if candidate_actions else Sleep()
+                action = _bind_action_from_reply("PrivilegeEscalate", candidate_actions)
+            else:
+                action = candidate_actions[0] if candidate_actions else Sleep()
+            _log_raw_llm_audit("specialist_mock_base", self.base_model_name, prompt, "PrivilegeEscalate", action, candidate_actions)
+            return action
 
         if self.model_mode in ("hf_base", "hf_dpo") and self.model is not None:
             return self._query_hf_pipeline(prompt, candidate_actions)
 
-        return candidate_actions[-1]
+        return _bind_action_from_reply("", candidate_actions)
 
     def _query_hf_pipeline(
         self,
         prompt: str,
         candidate_actions: List[Any],
         system_msg: Optional[str] = None,
+        agent_type: str = "specialist",
     ) -> Any:
         import torch
 
@@ -269,11 +301,24 @@ class LLMEscalationAgent(BaseAgent):
             )
 
         gen_ids = output_ids[0][prompt_tokens:]
-        self.total_tokens_used += int(prompt_tokens + len(gen_ids))
+        comp_tokens = int(len(gen_ids))
+        self.prompt_tokens_used += int(prompt_tokens)
+        self.completion_tokens_used += comp_tokens
+        self.total_tokens_used += int(prompt_tokens) + comp_tokens
         reply = self.tokenizer.decode(gen_ids, skip_special_tokens=True).strip()
 
-        # Semantically bind the reply to candidate actions
-        action = self._bind_action_from_text(reply, candidate_actions)
+        # Semantically bind the reply to candidate actions using deterministic content matcher
+        action = _bind_action_from_reply(reply, candidate_actions)
+
+        # Audit log raw reply + action selection
+        _log_raw_llm_audit(
+            agent_type=agent_type,
+            model_name=self.base_model_name,
+            prompt=prompt,
+            raw_reply=reply,
+            selected_action=action,
+            candidate_actions=candidate_actions,
+        )
 
         # Print/log the first 5 raw LLM replies and bound actions for diagnostic inspection
         if self.raw_reply_log_count < 5:

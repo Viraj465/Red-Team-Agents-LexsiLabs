@@ -9,6 +9,8 @@ the sparse-reward RL privilege escalation bottleneck reported in MILCOM 2026 (Sh
 
 import random
 from typing import Any, Dict
+
+import numpy as np
 from src.agents.base import BaseAgent
 from CybORG.Agents import FiniteStateRedAgent, SleepAgent
 from CybORG.Simulator.Actions import Sleep
@@ -38,7 +40,10 @@ class RLAgent(BaseAgent):
         self.privesc_success_prob = 1.0 if allow_privesc else privesc_success_prob
         self.seed = seed
         self.rng = random.Random(seed)
-        self.internal_agent = FiniteStateRedAgent()
+        try:
+            self.internal_agent = FiniteStateRedAgent(np_random=np.random.default_rng(self.seed))
+        except TypeError:
+            self.internal_agent = FiniteStateRedAgent()
         self.initialized = False
 
     def get_action(self, obs: Dict[str, Any], action_space: Any) -> Any:
@@ -65,6 +70,9 @@ class RLAgent(BaseAgent):
 
     def reset(self):
         """Resets the tactical policy state between wargaming episodes."""
-        self.internal_agent = FiniteStateRedAgent()
+        try:
+            self.internal_agent = FiniteStateRedAgent(np_random=np.random.default_rng(self.seed))
+        except TypeError:
+            self.internal_agent = FiniteStateRedAgent()
         self.initialized = False
         self.rng = random.Random(self.seed)

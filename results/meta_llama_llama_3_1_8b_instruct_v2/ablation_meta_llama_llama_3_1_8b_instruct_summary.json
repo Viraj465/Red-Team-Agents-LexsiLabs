@@ -1,0 +1,190 @@
+[
+  {
+    "Configuration": "1. Baseline Pure RL",
+    "Episodes": 30,
+    "P(Comp|Disc)": "39.0\u00b15.3%",
+    "P(Root|Comp)": "65.3\u00b122.9%",
+    "P(Impact|Root)": "61.5\u00b123.5%",
+    "Impact Rate": "100.0%",
+    "Avg RL Steps": "120.0\u00b10.0",
+    "Avg LLM Steps": "0.0\u00b10.0",
+    "Avg Tokens": "0\u00b10",
+    "Avg Time (s)": "3.35\u00b10.47s",
+    "_raw": {
+      "total_discov": 613,
+      "total_compro": 239,
+      "total_root": 156,
+      "total_impacted": 96,
+      "total_impact_episodes": 30,
+      "p_comp": 38.988580750407834,
+      "p_comp_std": 5.278737999749864,
+      "p_comp_95ci": [
+        37.05442202669903,
+        40.81039386057678
+      ],
+      "p_root": 65.27196652719665,
+      "p_root_std": 22.883832853843668,
+      "p_root_95ci": [
+        57.692307692307686,
+        72.89621212121212
+      ],
+      "p_impact": 61.53846153846154,
+      "p_impact_std": 23.523494899680372,
+      "p_impact_95ci": [
+        52.70250040459621,
+        70.73348762684707
+      ],
+      "p_end_to_end_yield": 15.660685154975528,
+      "avg_impacted_hosts": 3.2,
+      "impact_rate": 100.0,
+      "avg_rl_steps": 120.0,
+      "avg_llm_steps": 0.0,
+      "avg_handoff_transitions": 0.0,
+      "avg_tokens": 0.0,
+      "std_tokens": 0.0,
+      "avg_completion_tokens": 0.0,
+      "avg_time": 3.3497312466303506
+    }
+  },
+  {
+    "Configuration": "2. Baseline Pure LLM (Llama-3.1-8B-Instruct)",
+    "Episodes": 30,
+    "P(Comp|Disc)": "24.9\u00b19.9%",
+    "P(Root|Comp)": "49.4\u00b126.9%",
+    "P(Impact|Root)": "0.0\u00b10.0%",
+    "Impact Rate": "0.0%",
+    "Avg RL Steps": "0.0\u00b10.0",
+    "Avg LLM Steps": "120.0\u00b10.0",
+    "Avg Tokens": "72317\u00b113342",
+    "Avg Time (s)": "120.38\u00b13.71s",
+    "_raw": {
+      "total_discov": 349,
+      "total_compro": 87,
+      "total_root": 43,
+      "total_impacted": 0,
+      "total_impact_episodes": 0,
+      "p_comp": 24.92836676217765,
+      "p_comp_std": 9.93846961030841,
+      "p_comp_95ci": [
+        21.91761582268739,
+        28.321403782752036
+      ],
+      "p_root": 49.42528735632184,
+      "p_root_std": 26.93247156670472,
+      "p_root_95ci": [
+        39.53488372093023,
+        60.0
+      ],
+      "p_impact": 0.0,
+      "p_impact_std": 0.0,
+      "p_impact_95ci": [
+        0.0,
+        0.0
+      ],
+      "p_end_to_end_yield": 0.0,
+      "avg_impacted_hosts": 0.0,
+      "impact_rate": 0.0,
+      "avg_rl_steps": 0.0,
+      "avg_llm_steps": 120.0,
+      "avg_handoff_transitions": 0.0,
+      "avg_tokens": 72317.3,
+      "std_tokens": 13341.96129297838,
+      "avg_completion_tokens": 1542.2333333333333,
+      "avg_time": 120.37502146561941
+    }
+  },
+  {
+    "Configuration": "3. Hybrid + Frozen Base (Llama-3.1-8B-Instruct)",
+    "Episodes": 30,
+    "P(Comp|Disc)": "36.8\u00b15.5%",
+    "P(Root|Comp)": "89.2\u00b114.7%",
+    "P(Impact|Root)": "98.4\u00b14.5%",
+    "Impact Rate": "100.0%",
+    "Avg RL Steps": "110.3\u00b14.6",
+    "Avg LLM Steps": "9.7\u00b14.6",
+    "Avg Tokens": "2180\u00b11049",
+    "Avg Time (s)": "11.89\u00b14.20s",
+    "_raw": {
+      "total_discov": 576,
+      "total_compro": 212,
+      "total_root": 189,
+      "total_impacted": 186,
+      "total_impact_episodes": 30,
+      "p_comp": 36.80555555555556,
+      "p_comp_std": 5.482695573760845,
+      "p_comp_95ci": [
+        34.98306629649451,
+        38.5706211327939
+      ],
+      "p_root": 89.15094339622641,
+      "p_root_std": 14.700327956113792,
+      "p_root_95ci": [
+        83.79629629629629,
+        94.23076923076923
+      ],
+      "p_impact": 98.4126984126984,
+      "p_impact_std": 4.537711859975494,
+      "p_impact_95ci": [
+        96.44578940518028,
+        100.0
+      ],
+      "p_end_to_end_yield": 32.29166666666667,
+      "avg_impacted_hosts": 6.2,
+      "impact_rate": 100.0,
+      "avg_rl_steps": 110.3,
+      "avg_llm_steps": 9.7,
+      "avg_handoff_transitions": 18.333333333333332,
+      "avg_tokens": 2179.766666666667,
+      "std_tokens": 1049.0299227805128,
+      "avg_completion_tokens": 129.43333333333334,
+      "avg_time": 11.88889041741689
+    }
+  },
+  {
+    "Configuration": "4. Hybrid + AlignTune DPO (Llama-3.1-8B-Instruct)",
+    "Episodes": 30,
+    "P(Comp|Disc)": "36.1\u00b15.7%",
+    "P(Root|Comp)": "90.0\u00b114.0%",
+    "P(Impact|Root)": "98.9\u00b13.3%",
+    "Impact Rate": "100.0%",
+    "Avg RL Steps": "110.3\u00b14.6",
+    "Avg LLM Steps": "9.7\u00b14.6",
+    "Avg Tokens": "2172\u00b11061",
+    "Avg Time (s)": "11.89\u00b14.32s",
+    "_raw": {
+      "total_discov": 585,
+      "total_compro": 211,
+      "total_root": 190,
+      "total_impacted": 188,
+      "total_impact_episodes": 30,
+      "p_comp": 36.06837606837607,
+      "p_comp_std": 5.679385180480992,
+      "p_comp_95ci": [
+        34.169825235391976,
+        38.00018450184502
+      ],
+      "p_root": 90.04739336492891,
+      "p_root_std": 14.020174668099822,
+      "p_root_95ci": [
+        85.09544683257919,
+        95.09922901199313
+      ],
+      "p_impact": 98.94736842105263,
+      "p_impact_std": 3.348710280722669,
+      "p_impact_95ci": [
+        97.42234656268361,
+        100.0
+      ],
+      "p_end_to_end_yield": 32.136752136752136,
+      "avg_impacted_hosts": 6.266666666666667,
+      "impact_rate": 100.0,
+      "avg_rl_steps": 110.33333333333333,
+      "avg_llm_steps": 9.666666666666666,
+      "avg_handoff_transitions": 18.3,
+      "avg_tokens": 2172.3333333333335,
+      "std_tokens": 1060.612035048108,
+      "avg_completion_tokens": 129.0,
+      "avg_time": 11.893167002995808
+    }
+  }
+]

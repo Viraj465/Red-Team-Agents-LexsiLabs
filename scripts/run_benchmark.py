@@ -169,29 +169,81 @@ def run_comparative_benchmark(
     rows = [[s[k] for k in headers] for s in summaries]
     md_table = tabulate(rows, headers=headers, tablefmt="github")
 
-    # Statistical Significance Testing (Two-Proportion Z-Test)
+    # Statistical Significance Testing (Two-Proportion Z-Test with Explicit Numerators/Denominators)
     sig_notes = []
     try:
         cfg_map = {s["Configuration"]: s.get("_raw", {}) for s in summaries}
-        if cfg1 in cfg_map and cfg4 in cfg_map:
-            r1 = cfg_map[cfg1].get("total_root", 0)
-            c1 = cfg_map[cfg1].get("total_compro", 0)
-            r4 = cfg_map[cfg4].get("total_root", 0)
-            c4 = cfg_map[cfg4].get("total_compro", 0)
-            z_val, p_val = two_proportion_z_test(r4, c4, r1, c1)
+
+        def _fmt_z(label: str, c_a: int, n_a: int, c_b: int, n_b: int) -> str:
+            z_val, p_val = two_proportion_z_test(c_a, n_a, c_b, n_b)
+            p_a = (c_a / n_a * 100) if n_a > 0 else 0.0
+            p_b = (c_b / n_b * 100) if n_b > 0 else 0.0
+            p_str = "p < 0.0001" if p_val < 0.0001 else f"p = {p_val:.4f}"
+            sig_str = "p < 0.05, statistically significant" if p_val < 0.05 else "p >= 0.05"
+            return (
+                f"- **{label}**: {c_a}/{n_a} ({p_a:.1f}%) vs {c_b}/{n_b} ({p_b:.1f}%), "
+                f"z = {z_val:.2f}, {p_str} ({sig_str})"
+            )
+
+        if cfg1 in cfg_map and cfg3 in cfg_map:
             sig_notes.append(
-                f"- **Hybrid DPO vs Pure RL [P(Root|Comp)]**: z = {z_val:.2f}, p = {p_val:.4f} "
-                f"({'p < 0.05, statistically significant' if p_val < 0.05 else 'p >= 0.05'})"
+                _fmt_z(
+                    "Hybrid Frozen vs Pure RL [P(Root|Comp)]",
+                    cfg_map[cfg3].get("total_root", 0),
+                    cfg_map[cfg3].get("total_compro", 0),
+                    cfg_map[cfg1].get("total_root", 0),
+                    cfg_map[cfg1].get("total_compro", 0),
+                )
+            )
+        if cfg1 in cfg_map and cfg4 in cfg_map:
+            sig_notes.append(
+                _fmt_z(
+                    "Hybrid DPO vs Pure RL [P(Root|Comp)]",
+                    cfg_map[cfg4].get("total_root", 0),
+                    cfg_map[cfg4].get("total_compro", 0),
+                    cfg_map[cfg1].get("total_root", 0),
+                    cfg_map[cfg1].get("total_compro", 0),
+                )
             )
         if cfg3 in cfg_map and cfg4 in cfg_map:
-            r3 = cfg_map[cfg3].get("total_root", 0)
-            c3 = cfg_map[cfg3].get("total_compro", 0)
-            r4 = cfg_map[cfg4].get("total_root", 0)
-            c4 = cfg_map[cfg4].get("total_compro", 0)
-            z_val, p_val = two_proportion_z_test(r4, c4, r3, c3)
             sig_notes.append(
-                f"- **Hybrid DPO vs Hybrid Frozen [P(Root|Comp)]**: z = {z_val:.2f}, p = {p_val:.4f} "
-                f"({'p < 0.05, statistically significant' if p_val < 0.05 else 'p >= 0.05'})"
+                _fmt_z(
+                    "Hybrid DPO vs Hybrid Frozen [P(Root|Comp)]",
+                    cfg_map[cfg4].get("total_root", 0),
+                    cfg_map[cfg4].get("total_compro", 0),
+                    cfg_map[cfg3].get("total_root", 0),
+                    cfg_map[cfg3].get("total_compro", 0),
+                )
+            )
+        if cfg1 in cfg_map and cfg4 in cfg_map:
+            sig_notes.append(
+                _fmt_z(
+                    "Hybrid DPO vs Pure RL [P(Impact|Root)]",
+                    cfg_map[cfg4].get("total_impacted", 0),
+                    cfg_map[cfg4].get("total_root", 0),
+                    cfg_map[cfg1].get("total_impacted", 0),
+                    cfg_map[cfg1].get("total_root", 0),
+                )
+            )
+        if cfg3 in cfg_map and cfg4 in cfg_map:
+            sig_notes.append(
+                _fmt_z(
+                    "Hybrid DPO vs Hybrid Frozen [P(Impact|Root)]",
+                    cfg_map[cfg4].get("total_impacted", 0),
+                    cfg_map[cfg4].get("total_root", 0),
+                    cfg_map[cfg3].get("total_impacted", 0),
+                    cfg_map[cfg3].get("total_root", 0),
+                )
+            )
+        if cfg1 in cfg_map and cfg4 in cfg_map:
+            sig_notes.append(
+                _fmt_z(
+                    "Hybrid DPO vs Pure RL [End-to-End Yield P(Impact|Disc)]",
+                    cfg_map[cfg4].get("total_impacted", 0),
+                    cfg_map[cfg4].get("total_discov", 0),
+                    cfg_map[cfg1].get("total_impacted", 0),
+                    cfg_map[cfg1].get("total_discov", 0),
+                )
             )
     except Exception as e:
         sig_notes.append(f"Statistical significance calculation notice: {e}")

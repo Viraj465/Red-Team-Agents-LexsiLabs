@@ -19,6 +19,20 @@ hyperparameters:
   bf16: true
   gradient_checkpointing: true
 
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  bias: "none"
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
 peft_lora:
   use_peft: true
   r: 16
@@ -26,5 +40,11 @@ peft_lora:
   lora_dropout: 0.05
   bias: "none"
   task_type: "CAUSAL_LM"
-  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
-
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"

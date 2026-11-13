@@ -16,7 +16,7 @@ def compute_bootstrap_ci(
     """Computes non-parametric bootstrap confidence interval for a metric."""
     if not values:
         return 0.0, 0.0
-    arr = np.array(values)
+    arr = np.array(values, dtype=float)
     if len(arr) == 1:
         return float(arr[0]), float(arr[0])
 
@@ -30,6 +30,40 @@ def compute_bootstrap_ci(
     lower_p = (100.0 - ci) / 2.0
     upper_p = 100.0 - lower_p
     return float(np.percentile(boot_means, lower_p)), float(np.percentile(boot_means, upper_p))
+
+
+def compute_cluster_ratio_bootstrap_ci(
+    numerators: List[int],
+    denominators: List[int],
+    n_bootstraps: int = 1000,
+    ci: float = 95.0,
+    seed: int = 42,
+) -> Tuple[float, float]:
+    """
+    Computes episode-clustered (seed-level) non-parametric bootstrap 95% CI
+    for a pooled transition ratio sum(numerators) / sum(denominators).
+    Accounts for within-episode correlation across hosts and guarantees the
+    macro ratio point estimate lies within the confidence interval.
+    """
+    if not numerators or not denominators or sum(denominators) <= 0:
+        return 0.0, 0.0
+    num_arr = np.array(numerators, dtype=float)
+    den_arr = np.array(denominators, dtype=float)
+    n = len(num_arr)
+    if n == 1:
+        val = float(num_arr[0] / den_arr[0]) if den_arr[0] > 0 else 0.0
+        return val, val
+
+    rng = np.random.default_rng(seed)
+    boot_ratios = np.empty(n_bootstraps)
+    for i in range(n_bootstraps):
+        idx = rng.integers(0, n, size=n)
+        s_den = np.sum(den_arr[idx])
+        boot_ratios[i] = (np.sum(num_arr[idx]) / s_den) if s_den > 0 else 0.0
+
+    lower_p = (100.0 - ci) / 2.0
+    upper_p = 100.0 - lower_p
+    return float(np.percentile(boot_ratios, lower_p)), float(np.percentile(boot_ratios, upper_p))
 
 
 def two_proportion_z_test(count1: int, nobs1: int, count2: int, nobs2: int) -> Tuple[float, float]:
@@ -71,10 +105,18 @@ class KillChainMetricsCollector:
             rl_steps = stage_metrics.get("step", 0)
             llm_steps = 0
             tokens = 0
+            completion_tokens = 0
+            handoff_transitions = 0
         else:
             rl_steps = sum(1 for h in handoff_history if h.get("agent") == "RL")
             llm_steps = sum(1 for h in handoff_history if h.get("agent") == "LLM")
             tokens = sum(h.get("tokens", 0) for h in handoff_history)
+            completion_tokens = sum(h.get("completion_tokens", 0) for h in handoff_history)
+            handoff_transitions = sum(
+                1
+                for i in range(1, len(handoff_history))
+                if handoff_history[i].get("agent") != handoff_history[i - 1].get("agent")
+            )
 
         self.episodes_data.append({
             "discovered": stage_metrics.get("discovered", 0),
@@ -86,6 +128,8 @@ class KillChainMetricsCollector:
             "rl_steps": rl_steps,
             "llm_steps": llm_steps,
             "tokens": tokens,
+            "completion_tokens": completion_tokens,
+            "handoff_transitions": handoff_transitions,
             "duration_seconds": duration_seconds,
         })
 
@@ -105,9 +149,10 @@ class KillChainMetricsCollector:
         p_comp_macro = (total_compro / total_discov) if total_discov > 0 else 0.0
         p_root_macro = (total_root / total_compro) if total_compro > 0 else 0.0
         p_impact_macro = (total_impacted / total_root) if total_root > 0 else 0.0
+        p_yield_macro = (total_impacted / total_discov) if total_discov > 0 else 0.0
         episode_impact_rate = total_impact_episodes / n_episodes
 
-        # Per-episode distributions for standard deviation and bootstrap CIs
+        # Per-episode distributions for standard deviation
         p_comp_per_ep = [
             (e["compromised"] / e["discovered"]) if e["discovered"] > 0 else 0.0
             for e in self.episodes_data
@@ -126,10 +171,19 @@ class KillChainMetricsCollector:
         p_root_std = np.std(p_root_per_ep)
         p_impact_std = np.std(p_impact_per_ep)
 
-        # 95% Bootstrap Confidence Intervals
-        comp_ci_low, comp_ci_high = compute_bootstrap_ci(p_comp_per_ep)
-        root_ci_low, root_ci_high = compute_bootstrap_ci(p_root_per_ep)
-        impact_ci_low, impact_ci_high = compute_bootstrap_ci(p_impact_per_ep)
+        # Episode-clustered (seed-level) 95% Bootstrap CIs aligned with macro ratio estimators
+        comp_ci_low, comp_ci_high = compute_cluster_ratio_bootstrap_ci(
+            [e["compromised"] for e in self.episodes_data],
+            [e["discovered"] for e in self.episodes_data],
+        )
+        root_ci_low, root_ci_high = compute_cluster_ratio_bootstrap_ci(
+            [e["rooted"] for e in self.episodes_data],
+            [e["compromised"] for e in self.episodes_data],
+        )
+        impact_ci_low, impact_ci_high = compute_cluster_ratio_bootstrap_ci(
+            [e["impacted_hosts"] for e in self.episodes_data],
+            [e["rooted"] for e in self.episodes_data],
+        )
 
         avg_rl_steps = np.mean([e["rl_steps"] for e in self.episodes_data])
         std_rl_steps = np.std([e["rl_steps"] for e in self.episodes_data])
@@ -139,6 +193,10 @@ class KillChainMetricsCollector:
 
         avg_tokens = np.mean([e["tokens"] for e in self.episodes_data])
         std_tokens = np.std([e["tokens"] for e in self.episodes_data])
+
+        avg_comp_tokens = np.mean([e.get("completion_tokens", 0) for e in self.episodes_data])
+        avg_handoffs = np.mean([e.get("handoff_transitions", 0) for e in self.episodes_data])
+        avg_impacted_hosts = total_impacted / n_episodes
 
         avg_time = np.mean([e["duration_seconds"] for e in self.episodes_data])
         std_time = np.std([e["duration_seconds"] for e in self.episodes_data])
@@ -160,6 +218,7 @@ class KillChainMetricsCollector:
                 "total_compro": total_compro,
                 "total_root": total_root,
                 "total_impacted": total_impacted,
+                "total_impact_episodes": total_impact_episodes,
                 "p_comp": p_comp_macro * 100,
                 "p_comp_std": p_comp_std * 100,
                 "p_comp_95ci": (comp_ci_low * 100, comp_ci_high * 100),
@@ -169,11 +228,15 @@ class KillChainMetricsCollector:
                 "p_impact": p_impact_macro * 100,
                 "p_impact_std": p_impact_std * 100,
                 "p_impact_95ci": (impact_ci_low * 100, impact_ci_high * 100),
+                "p_end_to_end_yield": p_yield_macro * 100,
+                "avg_impacted_hosts": float(avg_impacted_hosts),
                 "impact_rate": episode_impact_rate * 100,
                 "avg_rl_steps": float(avg_rl_steps),
                 "avg_llm_steps": float(avg_llm_steps),
+                "avg_handoff_transitions": float(avg_handoffs),
                 "avg_tokens": float(avg_tokens),
                 "std_tokens": float(std_tokens),
+                "avg_completion_tokens": float(avg_comp_tokens),
                 "avg_time": float(avg_time),
             },
         }
