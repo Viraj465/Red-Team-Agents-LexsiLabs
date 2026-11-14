@@ -5,11 +5,74 @@ preference pairs using Lexsi Labs AlignTune (with TRL backend fallback).
 """
 
 import hashlib
+import inspect
 import json
 import os
 import subprocess
 from datetime import datetime, timezone
 from src.training.prepare_dpo_data import prepare_hf_dpo_dataset
+
+
+def _prepare_chat_templated_dataset(
+    dataset_path: str, model_name: str, max_context_length: int = 8192
+) -> str:
+    """
+    Renders raw DPO prompts with the target model's chat template (e.g. Cohere's
+    <|START_OF_TURN_TOKEN|> format) so DPO training matches LLMEscalationAgent inference.
+    Leaves the canonical dataset file unmodified on disk.
+    """
+    try:
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+    except Exception as e:
+        print(f"ℹ️ [ChatTemplate] Skipping chat template pre-rendering ({e}); using raw prompts.")
+        return dataset_path
+
+    if getattr(tokenizer, "chat_template", None) is None:
+        return dataset_path
+
+    try:
+        with open(dataset_path, "r", encoding="utf-8") as f:
+            records = json.load(f)
+    except Exception:
+        return dataset_path
+
+    system_msg = (
+        "You are an autonomous red-team privilege escalation specialist in a cybersecurity simulation.\n"
+        "Select exactly ONE action from [CANDIDATE ACTIONS] to progress the operation.\n"
+        "Output ONLY the selected action string verbatim. Do NOT include greetings, thoughts, markdown, explanations, or conversational preamble."
+    )
+
+    templated = []
+    for row in records:
+        raw_prompt = row.get("prompt", "")
+        messages = [
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": raw_prompt},
+        ]
+        try:
+            rendered_prompt = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+        except Exception:
+            rendered_prompt = raw_prompt
+        new_row = dict(row)
+        new_row["prompt"] = rendered_prompt
+        templated.append(new_row)
+
+    clean_tag = model_name.replace("/", "_").replace("-", "_").replace(".", "_").lower()
+    base_dir = os.path.dirname(dataset_path) or "data/processed"
+    out_path = os.path.join(base_dir, f"dpo_privesc_{clean_tag}_chat.json")
+    os.makedirs(base_dir, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(templated, f, indent=2)
+
+    print(
+        f"✅ [ChatTemplate] Prepared {len(templated)} templated DPO pairs for {model_name} "
+        f"(context_window={max_context_length}) -> {out_path}"
+    )
+    return out_path
 
 
 def _write_provenance(
@@ -23,7 +86,7 @@ def _write_provenance(
     seed: int = 42,
 ) -> str:
     """Writes complete reproducibility and provenance metadata (git SHA, dataset hash, hyperparameters)."""
-    git_sha = None
+    git_sha = os.environ.get("GIT_SHA")
     try:
         res = subprocess.run(
             ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=False
@@ -32,6 +95,12 @@ def _write_provenance(
             git_sha = res.stdout.strip()
     except Exception:
         pass
+    if not git_sha:
+        try:
+            with open(__file__, "rb") as f:
+                git_sha = f"code_sha256:{hashlib.sha256(f.read()).hexdigest()[:12]}"
+        except Exception:
+            git_sha = "colab-tarball-snapshot"
 
     dataset_sha256 = None
     num_samples = 0
@@ -72,6 +141,7 @@ def _write_provenance(
                     "load_in_4bit": True,
                     "bnb_4bit_quant_type": "nf4",
                     "compute_dtype": "bfloat16",
+                    "context_window": 8192,
                 },
                 "provenance": None,
             },
@@ -96,6 +166,7 @@ def _write_provenance(
             "gradient_accumulation_steps": 4,
             "effective_batch_size": 8,
             "max_length": 1024,
+            "model_max_length": 8192,
             "lora_r": 16,
             "lora_alpha": 32,
             "lora_dropout": 0.05,
@@ -125,15 +196,23 @@ def run_dpo_alignment(
     num_epochs: int = 3,
     learning_rate: float = 5e-6,
     beta: float = 0.1,
+    max_context_length: int = 8192,
 ):
     if not os.path.exists(dataset_path):
         prepare_hf_dpo_dataset(output_path=dataset_path)
+
+    active_dataset_path = _prepare_chat_templated_dataset(
+        dataset_path=dataset_path,
+        model_name=model_name,
+        max_context_length=max_context_length,
+    )
 
     print("=" * 65)
     print("🚀 LAUNCHING LEXSI LABS ALIGNTUNE DPO TRAINING PIPELINE")
     print(f"Toolkit       : AlignTune (aligntune)")
     print(f"Base Model    : {model_name}")
-    print(f"Dataset       : {dataset_path}")
+    print(f"Dataset       : {active_dataset_path} (canonical: {dataset_path})")
+    print(f"Context Window: {max_context_length} tokens")
     print(f"Output Adapter: {output_dir}")
     print("=" * 65)
 
@@ -155,7 +234,7 @@ def run_dpo_alignment(
         print("\n[AlignTune] Initializing AlignTune DPO Trainer...")
         trainer = create_rl_trainer(
             model_name=model_name,
-            dataset_name=dataset_path,
+            dataset_name=active_dataset_path,
             algorithm="dpo",
             backend="trl",
             output_dir=output_dir,
@@ -197,7 +276,7 @@ def run_dpo_alignment(
     from peft import LoraConfig
     from trl import DPOTrainer, DPOConfig
 
-    dataset = load_dataset("json", data_files=dataset_path, split="train")
+    dataset = load_dataset("json", data_files=active_dataset_path, split="train")
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -215,6 +294,7 @@ def run_dpo_alignment(
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.model_max_length = max_context_length
 
     peft_config = LoraConfig(
         r=16,
@@ -242,13 +322,19 @@ def run_dpo_alignment(
         remove_unused_columns=False,
     )
 
+    dpo_sig_params = inspect.signature(DPOTrainer.__init__).parameters
+    tokenizer_kwarg = (
+        {"processing_class": tokenizer}
+        if "processing_class" in dpo_sig_params
+        else {"tokenizer": tokenizer}
+    )
     trainer = DPOTrainer(
         model=model,
         ref_model=None,
         args=training_args,
         train_dataset=dataset,
-        tokenizer=tokenizer,
         peft_config=peft_config,
+        **tokenizer_kwarg,
     )
 
     print("[TRL] Commencing LoRA DPO alignment...")

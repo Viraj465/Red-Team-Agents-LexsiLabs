@@ -20,6 +20,10 @@ Empirical validation across **30 distinct CAGE-4 random seeds** and **120-step h
 | **Llama-3.1-8B (Remediated)** | 2. Baseline Pure LLM (Llama-3.1-8B-Instruct) | 24.9±9.9% | 49.4±26.9% | 0.0±0.0% | **0.0%** | 0.0±0.0 | 120.0±0.0 | 72317±13342 | 120.38±3.71s |
 | **Llama-3.1-8B (Remediated)** | 3. Hybrid + Frozen Base (Llama-3.1-8B-Instruct) | 36.8±5.5% | 89.2±14.7% | 98.4±4.5% | **100.0%** | 110.3±4.6 | 9.7±4.6 | 2180±1049 | 11.89±4.20s |
 | **Llama-3.1-8B (Remediated)** | 4. Hybrid + AlignTune DPO (Llama-3.1-8B-Instruct) | 36.1±5.7% | 90.0±14.0% | 98.9±3.3% | **100.0%** | 110.3±4.6 | 9.7±4.6 | 2172±1061 | 11.89±4.32s |
+| **Cohere Aya-Expanse-8B** | 1. Baseline Pure RL | 39.8±5.0% | 63.2±19.1% | 62.9±21.0% | **100.0%** | 120.0±0.0 | 0.0±0.0 | 0±0 | 3.34±0.47s |
+| **Cohere Aya-Expanse-8B** | 2. Baseline Pure LLM (aya-expanse-8b) | 92.7±8.8% | 1.3±3.6% | 0.0±0.0% | **0.0%** | 0.0±0.0 | 120.0±0.0 | 13106±10767 | 43.92±18.53s |
+| **Cohere Aya-Expanse-8B** | 3. Hybrid + Frozen Base (aya-expanse-8b) | 34.1±7.2% | 91.2±11.3% | 98.9±4.3% | **100.0%** | 111.4±2.9 | 8.6±2.9 | 1988±696 | 12.01±3.16s |
+| **Cohere Aya-Expanse-8B** | 4. Hybrid + AlignTune DPO (aya-expanse-8b) | 34.1±7.2% | 91.2±11.3% | 98.9±4.3% | **100.0%** | 111.4±2.9 | 8.6±2.9 | 1988±696 | 12.13±3.18s |
 
 ## Two-Proportion Z-Test Statistical Matrix (30 Seeds, $n \approx 180-240$ Attempts)
 

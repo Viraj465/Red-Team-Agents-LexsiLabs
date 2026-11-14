@@ -216,7 +216,7 @@ def collect_enterprise_topology_pairs(num_samples: int = 150) -> List[Dict[str, 
 def _detect_lexsi_toolkits() -> Dict[str, Dict[str, Any]]:
     """Checks installed Lexsi Open-Source Stack packages without crashing on minimal setups."""
     toolkits: Dict[str, Dict[str, Any]] = {}
-    for pkg in ("aligntune", "curatorkit", "safetune", "circuitkit"):
+    for pkg in ("aligntune", "curatorkit", "safetune", "circuitkit", "auditkit"):
         try:
             mod = __import__(pkg)
             toolkits[pkg] = {

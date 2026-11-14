@@ -1,8 +1,8 @@
 # LLM Privilege Escalation Specialist Agent Configuration
 agent:
   name: "LLMEscalationAgent"
-  base_model: "Qwen/Qwen2.5-Coder-7B-Instruct"
-  adapter_path: "results/checkpoints/aligntune_privesc_lora"
+  base_model: "CohereLabs/aya-expanse-8b"  # Also tested: meta-llama/Llama-3.1-8B-Instruct, Qwen/Qwen2.5-7B-Instruct
+  adapter_path: "results/checkpoints/aligntune_coherelabs_aya_expanse_8b_v2_cyborg_lora"
   execution_modes: ["mock", "hf_base", "hf_dpo"]
   default_mode: "mock"
 
@@ -12,7 +12,8 @@ inference:
   bnb_4bit_compute_dtype: "bfloat16"
   bnb_4bit_use_double_quant: true
   device_map: "auto"
-  max_new_tokens: 48
+  context_window: 8192
+  max_new_tokens: 96
   temperature: 0.0
   do_sample: false
 
