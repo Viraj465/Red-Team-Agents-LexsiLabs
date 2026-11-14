@@ -15,7 +15,8 @@ try:
     import safetune
     import circuitkit
     import curatorkit
-    print("✅ Lexsi Labs toolkits (aligntune, safetune, circuitkit, curatorkit) imported successfully.")
+    import auditkit
+    print("✅ Lexsi Labs toolkits (aligntune, safetune, circuitkit, curatorkit, auditkit) imported successfully.")
 except ImportError as e:
     print(f"⚠️ Lexsi toolkit import warning: {e}")
 

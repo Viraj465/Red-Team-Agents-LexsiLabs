@@ -3,8 +3,10 @@ Executes multi-episode benchmark sweeps with distinct random seeds per episode.
 Measures stage transitions, token economics, and wall-clock execution latency.
 """
 
+import random
 import time
 from typing import Any
+import numpy as np
 from tqdm.auto import tqdm
 from src.env.cyborg_wrapper import StageGatedCybORGEnv
 from src.evaluation.metrics import KillChainMetricsCollector
@@ -37,7 +39,10 @@ class RedTeamEvaluator:
             ep_iter = ep_range
 
         for ep in ep_iter:
-            env = StageGatedCybORGEnv(seed=100 + ep, steps=self.max_steps)
+            ep_seed = 100 + ep
+            random.seed(ep_seed)
+            np.random.seed(ep_seed)
+            env = StageGatedCybORGEnv(seed=ep_seed, steps=self.max_steps)
             obs, action_space = env.reset()
             agent.reset()
 

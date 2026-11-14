@@ -48,6 +48,7 @@ python3 -m pip install -q -r requirements.txt || {
         "safetune>=0.1.12" \
         "circuitkit>=0.2.0" \
         "curatorkit>=0.1.22" \
+        "auditkit>=1.1.3" \
         "bitsandbytes>=0.45.5" \
         "peft>=0.18.0" \
         "trl>=1.7.1" \
@@ -66,6 +67,7 @@ python3 verify-setup.py
 
 echo "=================================================================="
 echo "✅ Google Colab GPU Setup Complete! Ready to run:"
-echo "   python3 scripts/run_colab_pipeline.py --model-name meta-llama/Llama-3.1-8B-Instruct --episodes 30 --max-steps 120"
+echo "   python3 scripts/run_colab_pipeline.py --model-name CohereLabs/aya-expanse-8b --episodes 30 --max-steps 120"
+echo "   # or --model-name meta-llama/Llama-3.1-8B-Instruct"
 echo "=================================================================="
 

@@ -47,6 +47,13 @@ def generate_report():
     qwen_map = {item["Configuration"].split("(")[0].strip(): item for item in qwen_data}
     llama_map = {item["Configuration"].split("(")[0].strip(): item for item in llama_data}
 
+    aya_json = "results/coherelabs_aya_expanse_8b_v2/ablation_summary.json"
+    aya_map = None
+    if os.path.exists(aya_json):
+        with open(aya_json, "r", encoding="utf-8") as f:
+            aya_data = json.load(f)
+        aya_map = {item["Configuration"].split("(")[0].strip(): item for item in aya_data}
+
     # Extract raw counts
     q_rl_raw = qwen_map.get("1. Baseline Pure RL", {}).get("_raw", {})
     q_fr_raw = qwen_map.get("3. Hybrid + Frozen Base", {}).get("_raw", {})
@@ -169,7 +176,11 @@ def generate_report():
     llama_prefix_note = "" if (llama_parity or llama_is_v2) else " *(Pre-remediation baseline)*"
     llama_family_label = "Llama-3.1-8B (Remediated)" if llama_is_v2 else f"Llama-3.1-8B{llama_prefix_note}"
 
-    for label, dmap in [("Qwen2.5-7B", qwen_map), (llama_family_label, llama_map)]:
+    model_tables = [("Qwen2.5-7B", qwen_map), (llama_family_label, llama_map)]
+    if aya_map is not None:
+        model_tables.append(("Cohere Aya-Expanse-8B", aya_map))
+
+    for label, dmap in model_tables:
         for cfg_key in ["1. Baseline Pure RL", "2. Baseline Pure LLM", "3. Hybrid + Frozen Base", "4. Hybrid + AlignTune DPO"]:
             row = dmap.get(cfg_key, {})
             name = row.get("Configuration", cfg_key)
@@ -225,6 +236,8 @@ def generate_report():
         "results/meta_llama_3_1_8b_v2/cross_model_comparative_analysis.md",
         "results/meta_llama_llama_3_1_8b_instruct_v2/cross_model_comparative_analysis.md",
     ]
+    if aya_map is not None:
+        out_files.append("results/coherelabs_aya_expanse_8b_v2/cross_model_comparative_analysis.md")
     for out_file in out_files:
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         with open(out_file, "w", encoding="utf-8") as f:

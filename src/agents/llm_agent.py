@@ -8,6 +8,7 @@ Supports four execution modes for ablation studies:
 """
 
 import gc
+import hashlib
 import json
 import os
 import random
@@ -111,16 +112,25 @@ def _log_raw_llm_audit(
     raw_reply: str,
     selected_action: Any,
     candidate_actions: List[Any],
+    model_mode: str = "unknown",
+    adapter_path: Optional[str] = None,
+    adapter_sha256: Optional[str] = None,
 ) -> None:
-    """Appends raw LLM reply + selected action to logs/raw_llm_audit.jsonl for §5.3 verification."""
+    """Appends raw LLM reply + selected action + checkpoint provenance to logs/raw_llm_audit.jsonl."""
     try:
         os.makedirs("logs", exist_ok=True)
+        reply_hash = hashlib.sha256((raw_reply or "").encode("utf-8")).hexdigest()[:16]
         record = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "agent_type": agent_type,
             "model": model_name,
+            "model_mode": model_mode,
+            "adapter_path": adapter_path if model_mode == "hf_dpo" else None,
+            "adapter_loaded": bool(model_mode == "hf_dpo" and adapter_sha256),
+            "adapter_sha256": adapter_sha256 if model_mode == "hf_dpo" else None,
             "prompt_tail": prompt[-400:] if prompt else "",
             "raw_reply": raw_reply,
+            "reply_sha256": reply_hash,
             "selected_action": str(selected_action),
             "selected_class": type(selected_action).__name__,
             "num_candidates": len(candidate_actions),
@@ -138,20 +148,34 @@ class LLMEscalationAgent(BaseAgent):
         model_mode: str = "mock",
         base_model_name: str = "Qwen/Qwen2.5-Coder-7B-Instruct",
         adapter_path: Optional[str] = "results/checkpoints/aligntune_privesc_lora",
+        max_context_length: int = 8192,
     ):
         self.model_mode = model_mode
         self.base_model_name = base_model_name
         self.adapter_path = adapter_path
+        self.max_context_length = max_context_length
         self.step_counter = 0
         self.total_tokens_used = 0
         self.prompt_tokens_used = 0
         self.completion_tokens_used = 0
         self.raw_reply_log_count = 0
+        self.adapter_sha256: Optional[str] = None
         self.model = None
         self.tokenizer = None
 
         if self.model_mode in ("hf_base", "hf_dpo"):
             self._init_hf_model()
+
+    def _compute_adapter_hash(self, adapter_dir: str) -> Optional[str]:
+        for fname in ("adapter_model.safetensors", "adapter_model.bin", "adapter_config.json"):
+            fpath = os.path.join(adapter_dir, fname)
+            if os.path.exists(fpath):
+                try:
+                    with open(fpath, "rb") as f:
+                        return hashlib.sha256(f.read()).hexdigest()[:16]
+                except Exception:
+                    pass
+        return None
 
     def _init_hf_model(self):
         import torch
@@ -168,6 +192,11 @@ class LLMEscalationAgent(BaseAgent):
         self.tokenizer = AutoTokenizer.from_pretrained(self.base_model_name)
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+        if (
+            getattr(self.tokenizer, "model_max_length", None) is None
+            or self.tokenizer.model_max_length > self.max_context_length
+        ):
+            self.tokenizer.model_max_length = self.max_context_length
 
         base_model = AutoModelForCausalLM.from_pretrained(
             self.base_model_name,
@@ -178,14 +207,13 @@ class LLMEscalationAgent(BaseAgent):
 
         if self.model_mode == "hf_dpo":
             if self.adapter_path and os.path.exists(self.adapter_path):
-                print(f"✅ [LLMEscalationAgent] Loaded AlignTune DPO adapter: {self.adapter_path}")
-                peft_model = PeftModel.from_pretrained(base_model, self.adapter_path)
-                try:
-                    self.model = peft_model.merge_and_unload()
-                    print("⚡ [LLMEscalationAgent] Successfully merged LoRA adapter for zero-overhead inference.")
-                except Exception as e:
-                    print(f"ℹ️ [LLMEscalationAgent] Operating with unmerged LoRA adapter: {e}")
-                    self.model = peft_model
+                self.adapter_sha256 = self._compute_adapter_hash(self.adapter_path)
+                print(
+                    f"✅ [LLMEscalationAgent] Loaded AlignTune DPO adapter: {self.adapter_path} "
+                    f"(sha256={self.adapter_sha256})"
+                )
+                # Keep PeftModel active on 4-bit nf4 base models to avoid 4-bit merge_and_unload() dequantization rounding
+                self.model = PeftModel.from_pretrained(base_model, self.adapter_path)
             else:
                 raise FileNotFoundError(
                     f"AlignTune adapter not found at '{self.adapter_path}'. Run train_dpo.py first."
@@ -289,7 +317,13 @@ class LLMEscalationAgent(BaseAgent):
                 rendered = f"System: {system_msg}\n\nUser: {prompt}\n\nAssistant:"
         else:
             rendered = f"System: {system_msg}\n\nUser: {prompt}\n\nAssistant:"
-        inputs = self.tokenizer(rendered, return_tensors="pt").to(self.model.device)
+        max_input_tokens = max(self.max_context_length - 96, 512)
+        inputs = self.tokenizer(
+            rendered,
+            return_tensors="pt",
+            truncation=True,
+            max_length=max_input_tokens,
+        ).to(self.model.device)
         prompt_tokens = inputs["input_ids"].shape[1]
 
         with torch.no_grad():
@@ -298,6 +332,7 @@ class LLMEscalationAgent(BaseAgent):
                 max_new_tokens=96,
                 do_sample=False,
                 pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
             )
 
         gen_ids = output_ids[0][prompt_tokens:]
@@ -310,7 +345,7 @@ class LLMEscalationAgent(BaseAgent):
         # Semantically bind the reply to candidate actions using deterministic content matcher
         action = _bind_action_from_reply(reply, candidate_actions)
 
-        # Audit log raw reply + action selection
+        # Audit log raw reply + action selection + adapter provenance
         _log_raw_llm_audit(
             agent_type=agent_type,
             model_name=self.base_model_name,
@@ -318,6 +353,9 @@ class LLMEscalationAgent(BaseAgent):
             raw_reply=reply,
             selected_action=action,
             candidate_actions=candidate_actions,
+            model_mode=self.model_mode,
+            adapter_path=self.adapter_path,
+            adapter_sha256=self.adapter_sha256,
         )
 
         # Print/log the first 5 raw LLM replies and bound actions for diagnostic inspection

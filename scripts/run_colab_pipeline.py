@@ -47,7 +47,7 @@ def _configure_hf_auth():
     else:
         print(
             "ℹ️ [Hugging Face] No HF_TOKEN found in environment. "
-            "For gated models like meta-llama/Llama-3.1-8B-Instruct, export HF_TOKEN='hf_...' first."
+            "For gated models like CohereLabs/aya-expanse-8b or meta-llama/Llama-3.1-8B-Instruct, export HF_TOKEN='hf_...' first."
         )
 
 
@@ -179,7 +179,7 @@ if __name__ == "__main__":
         "--model-name",
         type=str,
         default="meta-llama/Llama-3.1-8B-Instruct",
-        help="Hugging Face model ID (e.g. meta-llama/Llama-3.1-8B-Instruct or Qwen/Qwen2.5-7B-Instruct)",
+        help="Hugging Face model ID (e.g. CohereLabs/aya-expanse-8b, meta-llama/Llama-3.1-8B-Instruct, or Qwen/Qwen2.5-7B-Instruct)",
     )
     parser.add_argument("--episodes", type=int, default=30, help="Episodes per configuration (default: 30)")
     parser.add_argument("--max-steps", type=int, default=120, help="Horizon steps per episode (default: 120)")
